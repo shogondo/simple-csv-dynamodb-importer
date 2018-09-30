@@ -1,0 +1,49 @@
+#! /usr/bin/env ruby
+
+require 'aws-sdk-dynamodb'
+require 'csv'
+
+def main
+  validate_arguments
+  import
+end
+
+def validate_arguments
+  return if ARGV.length >= 2
+
+  puts 'USAGE: importer CSV_FILE DDB_TABLE [PROFILE]'
+  exit
+end
+
+def import
+  csv_file = ARGV[0]
+  table_name = ARGV[1]
+  profile = ARGV[2]
+  items = convert_to_items(csv_file)
+  put_items_to_dynamodb(table_name, profile, items)
+end
+
+def convert_to_items(csv_file)
+  reader = CSV.open(csv_file)
+  header = reader.take(1)[0]
+  items = reader.map do |row|
+    item = {}
+    header.each_with_index do |name, index|
+      item[name] = row[index]
+    end
+    item
+  end
+  reader.close
+  items
+end
+
+def put_items_to_dynamodb(table_name, profile, items)
+  client = Aws::DynamoDB::Client.new(profile: profile)
+  puts "Putting items to #{table_name}"
+  items.each do |item|
+    puts item
+    client.put_item(table_name: table_name, item: item)
+  end
+end
+
+main
